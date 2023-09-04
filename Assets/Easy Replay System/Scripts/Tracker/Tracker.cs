@@ -132,7 +132,7 @@ namespace BaldAndBold
         private List<Trackable> trackables = new List<Trackable>();
         private float currentTime = 0.0f;
         private float totalTime = 0.0f;
-        public float maxRecordTime = 5.0f;
+        public float maxRecordTime = 0.0f;
 
         public static float FPS_10 = 0.1f;      //10 FPS 
         public static float FPS_30 = 0.033f;    //30 FPS
@@ -148,6 +148,8 @@ namespace BaldAndBold
         private int currentTrackIndex = 0;
         //private List<List<Trackable>> multiTrackData = new List<List<Trackable>>(); // 存储多个轨道的数据
         public List<int> activeTrackIndices = new List<int>();
+
+        private bool isFirstTimeRecord = true;
 
         //Do recording and playing after physics simulation
         void LateUpdate()
@@ -175,32 +177,66 @@ namespace BaldAndBold
 
         private void UpdateRecord()
         {
-            currentTime += Time.deltaTime;
-            totalTime = currentTime; //total time equals current time whilst recording
-            remainingKeyframeTime -= Time.deltaTime;
-
-            if (remainingKeyframeTime > 0)
-                return;
-
-            // 检查是否达到最大录制时间
-            if (totalTime >= maxRecordTime)
+            //第一次录制，不限制时长，录制结束的时候将最大时长设置为第一次录制的总时长(在SetState中）
+            if (isFirstTimeRecord)
             {
-                // 结束录制
-                Stop();
-                TrackableManager.Instance.AllTrackList[currentTrackIndex].isRecorded = true;
-                onRecordFinished.Invoke();
-                return;
+                currentTime += Time.deltaTime;
+                totalTime = currentTime; //total time equals current time whilst recording
+                remainingKeyframeTime -= Time.deltaTime;
+
+                if (remainingKeyframeTime > 0)
+                    return;
+
+                //if (DebugMode) Debug.Log("Recording (" + currentTime + ")");
+
+                Track currentTrack = TrackableManager.Instance.AllTrackList[currentTrackIndex];
+                foreach (Trackable t in currentTrack.trackables)
+                {
+                    t.RecordAt(currentTime);
+                }
+
+                remainingKeyframeTime += targetRecordingRate;
+            }
+            else
+            {
+                currentTime += Time.deltaTime;
+                totalTime = maxRecordTime; //total time equals current time whilst recording
+                remainingKeyframeTime -= Time.deltaTime;
+
+                if (remainingKeyframeTime > 0)
+                    return;
+
+                //if (DebugMode) Debug.Log("Recording (" + currentTime + ")");
+                if (currentTime <= totalTime)
+                {
+                    Track currentTrack = TrackableManager.Instance.AllTrackList[currentTrackIndex];
+                    foreach (Trackable t in currentTrack.trackables)
+                    {
+                        t.RecordAt(currentTime);
+                    }
+
+                    foreach (Track track in TrackableManager.Instance.AllTrackList)
+                    {
+                        // 只有当轨道已经录制完毕时，才进行回放
+                        if (track.isRecorded == true)
+                        {
+                            foreach (Trackable t in track.trackables)
+                            {
+                                t.PlaybackAt(currentTime);
+                            }
+                        }
+
+                    }
+
+                    remainingKeyframeTime += targetRecordingRate;
+                }
+                else
+                {
+                    SetState(Tracker.TrackerState.IDLE);
+                }
+
             }
 
-            //if (DebugMode) Debug.Log("Recording (" + currentTime + ")");
-
-            Track currentTrack = TrackableManager.Instance.AllTrackList[currentTrackIndex];
-            foreach (Trackable t in currentTrack.trackables)
-            {
-                t.RecordAt(currentTime);
-            }
-
-            remainingKeyframeTime += targetRecordingRate;
         }
 
         private void UpdatePlayback()
@@ -242,7 +278,15 @@ namespace BaldAndBold
                 Track currentTrack = TrackableManager.Instance.AllTrackList[currentTrackIndex];
                 currentTrack.isRecorded = true;
                 currentTrack.recordDuration = totalTime;
+
+                if (currentTrackIndex == 0)
+                {
+                    maxRecordTime = totalTime;
+                    isFirstTimeRecord = false;
+                }
+
                 Debug.Log("Current Track status isRecording =  " + currentTrack.isRecorded + "\n" + " , Current Track duration: " + currentTrack.recordDuration);
+                Debug.Log("First time record? : " + isFirstTimeRecord);
             }
             //===========================================================================================
 
@@ -481,15 +525,8 @@ namespace BaldAndBold
 
         public void Record()
         {
-            //SetState(TrackerState.RECORD);
-            //// Start recording into the specified track
-            //foreach (Trackable t in TrackableManager.Instance.individualTrackList[currentTrackIndex])
-            //{
-            //    t.PrepareForRecord();
-            //    Debug.Log("Record() invoke, multiTrackData[" + currentTrackIndex + "]");
-            //}
-
             SetState(TrackerState.RECORD);
+
             Track currentTrack = TrackableManager.Instance.AllTrackList[currentTrackIndex];
             currentTrack.currentTrackState = Track.TrackState.RECORD;
             foreach (Trackable t in currentTrack.trackables)
@@ -504,23 +541,13 @@ namespace BaldAndBold
             currentTrackIndex = trackIndex;
             activeTrackIndices.Clear();
             activeTrackIndices.Add(currentTrackIndex);
+
             Record();
         }
 
 
         public void Play()
         {
-            //SetState(TrackerState.PLAYBACK);
-            ///* --------- Start playback from the specified track --------*/
-            //activeTrackIndices.Clear();
-            //for (int i = 0; i < TrackableManager.Instance.individualTrackList.Count; i++)
-            //{
-            //    activeTrackIndices.Add(i); // 默认回放所有轨道
-            //    foreach(Trackable t in TrackableManager.Instance.individualTrackList[i])
-            //    {
-            //        t.PrepareForPlayback();
-            //    }
-            //}
             SetState(TrackerState.PLAYBACK);
             activeTrackIndices.Clear();
             for (int i = 0; i < TrackableManager.Instance.AllTrackList.Count; i++)
