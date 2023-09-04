@@ -48,6 +48,7 @@ namespace BaldAndBold
             stopButton.gameObject.SetActive(false);
             playButton.interactable = false;
             SeekSlider.interactable = false;
+            SeekSlider.onValueChanged.AddListener(Seek);
             addTrack.onClick.AddListener(AddNewTrack);
         }
 
@@ -134,7 +135,7 @@ namespace BaldAndBold
             if (!Tracker.Instance.IsRecording())
             {
                 currentSeekTime.text = "0";
-                //SeekSlider.value = 0;
+                SeekSlider.value = 0;
             }
             Tracker.Instance.Stop();
 

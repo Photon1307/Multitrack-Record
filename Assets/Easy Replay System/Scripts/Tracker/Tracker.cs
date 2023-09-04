@@ -329,9 +329,23 @@ namespace BaldAndBold
         private void PrepareForPlayback()
         {
             //currentTime = 0;
-            foreach (Trackable t in trackables)
+            //foreach (Trackable t in trackables)
+            //{
+            //    t.PrepareForPlayback();
+            //}
+
+            for (int i = 0; i < TrackableManager.Instance.AllTrackList.Count; i++)
             {
-                t.PrepareForPlayback();
+                Track currentTrack = TrackableManager.Instance.AllTrackList[i];
+                if (currentTrack.isRecorded)
+                {
+                    activeTrackIndices.Add(i);
+                    currentTrack.currentTrackState = Track.TrackState.SEEK;
+                    foreach (Trackable t in currentTrack.trackables)
+                    {
+                        t.PrepareForPlayback();
+                    }
+                }
             }
         }
 
@@ -361,9 +375,22 @@ namespace BaldAndBold
             }
 
             currentTime = time;
-            foreach (Trackable t in trackables)
+            //foreach (Trackable t in trackables)
+            //{
+            //    t.Seek(currentTime);
+            //}
+            for (int i = 0; i < TrackableManager.Instance.AllTrackList.Count; i++)
             {
-                t.Seek(currentTime);
+                Track currentTrack = TrackableManager.Instance.AllTrackList[i];
+                if (currentTrack.isRecorded)
+                {
+                    activeTrackIndices.Add(i);
+                    currentTrack.currentTrackState = Track.TrackState.SEEK;
+                    foreach (Trackable t in currentTrack.trackables)
+                    {
+                        t.Seek(currentTime);
+                    }
+                }
             }
         }
 
